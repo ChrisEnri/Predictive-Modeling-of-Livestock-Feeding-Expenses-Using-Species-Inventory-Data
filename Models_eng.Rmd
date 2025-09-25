@@ -1,0 +1,522 @@
+---
+title: "Models for preliminary expense prediction"
+author: "Christian Amaro INEGI"
+date: "2025-04-21"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+In this section, the libraries required to perform the statistical analysis are loaded. These tools allow for data manipulation and cleaning, as well as the implementation, visualization, and validation of statistical models. A random seed (set.seed(123)) is also included to ensure reproducibility in processes that involve randomness, such as data partitioning or model training.
+
+dplyr, tidyverse, readxl, readr, and foreign: These packages facilitate reading, transforming, and cleaning data from various sources such as Excel files, CSV files, or statistical formats like .sav.
+
+caTools: This package is primarily used to split the dataset into training and testing subsets.
+
+corrplot: Provides tools to visualize correlation matrices to assess relationships between numerical variables.
+
+quantreg: Implements quantile regression models, which are useful for analyzing the effects of independent variables at different quantiles of the distribution.
+
+rpart and rpart.plot: Allow for the creation and graphical representation of decision trees.
+
+randomForest: Used to build random forest models for classification and regression tasks, offering robustness against overfitting.
+
+factoextra: Facilitates the visualization and interpretation of results from multivariate analyses, such as Principal Component Analysis (PCA).
+
+patchwork: Allows multiple plots generated with ggplot2 to be combined into a single visualization.
+
+writexl: Enables the export of tables and analytical results directly into Excel files.
+
+```{r include=FALSE}
+set.seed(123)
+
+library(readxl)
+library(dplyr)
+library(caTools)
+library(readxl)
+library(foreign)
+#library(esquisse)
+library(readr)
+library(corrplot)
+library(tidyverse)
+#library(MASS)
+#library(quantreg)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(factoextra)
+library(patchwork)
+library(writexl)
+library(ggplot2)
+
+```
+
+Importing the dataset:
+The file "BASE.xlsx" is read from the first sheet using the read_xlsx() function, keeping the column names as defined in the source file (col_names = TRUE).
+
+Renaming key variable:
+The variable "NUEVA" is renamed to "Existencias" to improve interpretability and ensure semantic consistency in the subsequent analysis.
+
+Preprocessing and cleaning:
+A list of all variable names in the dataframe is obtained using colnames(), which allows transformations to be applied automatically through a for loop.
+
+Replacing missing values:
+Using a for loop, all variables in the dataset are scanned and missing values (NA) are replaced with zeros (0). This approach ensures that subsequent statistical analyses are optimized, functions and models work with complete data, and potential errors due to missing values are avoided.
+
+```{r}
+datos <- read_xlsx(path = "BASE.xlsx", sheet = 1,col_names = T)
+
+datos <- datos %>% rename(Existencias = NUEVA)
+
+# nombres de variables para ciclo for 
+
+variables <- colnames(datos)
+
+# se quitan los NA y se convierten en 0
+
+for (var in variables) {
+
+ datos[[var]] <- ifelse(is.na(datos[[var]]), 0, datos[[var]])
+  
+}
+
+
+
+
+
+
+```
+
+Exploratory correlation analysis:
+At this stage, an exploratory analysis of linear relationships between the variables in the dataset is performed. A correlation matrix is generated using the cor() function applied to the entire dataframe, and it is then visualized using the corrplot() function.
+
+```{r, warning=FALSE}
+corrplot(cor(datos), type = "upper", method = "square",addgrid.col = T)
+```
+
+
+Visual exploration of variable distributions:
+With the aim of visually exploring the distribution and behavior of each numeric variable in the dataset, a boxplot is generated for each variable using a for loop. This type of plot allows for quick identification of the median, dispersion, symmetry of the distribution, and the presence of outliers.
+
+```{r notas, warning=FALSE, include=FALSE}
+## Para sacar gráficos boxplot
+for (i in variables) {
+  
+ p <-  ggplot(datos) + 
+    aes(x = "", y = datos[[i]]) + geom_boxplot() + theme_minimal() + labs(y = i, x = "")
+  
+ print(p)
+ 
+}
+
+
+
+```
+
+Logarithmic transformation of variables:
+Since the previous boxplots revealed asymmetric distributions and the presence of extreme values in several variables, a logarithmic transformation is applied to improve normality and reduce the relative dispersion of the data. This type of transformation is common in statistical analysis when variables exhibit high positive skewness or very wide scales.
+
+
+```{r}
+library(dplyr)
+
+# Se normalizan variables 
+
+datos_norm <- datos %>%
+  mutate(
+    CB112 = log(CB112),
+    CP112 = log(CP112),
+    CO112 = log(CO112),
+    CC112 = log(CC112),
+    CB121_01 = log(CB121_01),
+    CB121_08 = log(CB121_08),
+    CB121_02 = log(CB121_02),
+    CB121_03 = log(CB121_03),
+    CB121_04 = log(CB121_04),
+    CB121_06 = log(CB121_06),
+    CP121_01 = log(CP121_01),
+    CP121_02 = log(CP121_02),
+    CP121_05 = log(CP121_05),
+    CP121_06 = log(CP121_06),
+    CP121_07 = log(CP121_07),
+    CP121_08 = log(CP121_08),
+    CA114_01 = log(CA114_01),
+    CA114_02 = log(CA114_02),
+    CA114_03 = log(CA114_03),
+    CA114_04 = log(CA114_04),
+    CO113_01 = log(CO113_01),
+    CO113_02 = log(CO113_02),
+    CO113_03 = log(CO113_03),
+    CC113 = log(CC113),
+    Existencias = log(Existencias)
+  )
+
+# Se quitan los infinitos
+
+for (var in variables) {
+
+ datos_norm[[var]] <- ifelse((is.infinite(datos_norm[[var]])), 0, datos_norm[[var]])
+  
+}
+```
+
+
+
+
+
+
+
+Boxplots after logarithmic transformation:
+Once the logarithmic transformation has been applied to the numeric variables, boxplots are generated again for each variable using the transformed dataset (datos_norm). The purpose of this visualization is to graphically assess whether the distribution of the variables has become more symmetric and whether the presence of extreme values (outliers) has been reduced, which would indicate an improvement in the normality and stability of the data.
+
+```{r include=FALSE}
+for (i in variables) {
+  
+ p <-  ggplot(datos_norm) + 
+    aes(x = "", y = datos_norm[[i]]) + geom_boxplot() + theme_minimal() + labs(y = i, x = "")
+ 
+ 
+ 
+ print(p)
+
+ 
+  
+}
+
+
+
+
+
+```
+
+
+
+
+Multiple linear regression modeling:
+In this section, a multiple linear regression model is built with the aim of predicting the variable CG111_01, which represents food expenses. The analysis starts with the transformed dataset (datos_norm), selecting relevant variables and splitting the data into training and testing subsets.
+
+The variables ID_CA2022_UP, CG111_02, and CG111_03 are removed as they are not considered predictors for this model. The target variable (CG111_01) is retained as the dependent variable in the analysis.
+
+Next, the dataset is partitioned using the sample.split() function from the caTools package, randomly allocating 80% of the data for training and the remaining 20% for model validation.
+
+Subsequently, a multiple linear regression model is fitted using all available variables as predictors.
+
+
+\begin{align*}
+\text{CG111_01}_i &= \beta_0 + \beta_1 \cdot \text{CB112}_i + \beta_2 \cdot \text{CP112}_i + \beta_3 \cdot \text{CO112}_i + \beta_4 \cdot \text{CC112}_i \\
+&\quad + \beta_5 \cdot \text{CB121_01}_i + \beta_6 \cdot \text{CB121_08}_i + \beta_7 \cdot \text{CB121_02}_i + \beta_8 \cdot \text{CB121_03}_i \\
+&\quad + \beta_9 \cdot \text{CB121_04}_i + \beta_{10} \cdot \text{CB121_06}_i + \beta_{11} \cdot \text{CP121_01}_i + \beta_{12} \cdot \text{CP121_02}_i \\
+&\quad + \beta_{13} \cdot \text{CP121_05}_i + \beta_{14} \cdot \text{CP121_06}_i + \beta_{15} \cdot \text{CP121_07}_i + \beta_{16} \cdot \text{CP121_08}_i \\
+&\quad + \beta_{17} \cdot \text{CA114_01}_i + \beta_{18} \cdot \text{CA114_02}_i + \beta_{19} \cdot \text{CA114_03}_i + \beta_{20} \cdot \text{CA114_04}_i \\
+&\quad + \beta_{21} \cdot \text{CO113_01}_i + \beta_{22} \cdot \text{CO113_02}_i + \beta_{23} \cdot \text{CO113_03}_i + \beta_{24} \cdot \text{CC113}_i \\
+&\quad + \beta_{25} \cdot \text{Existencias}_i + \varepsilon_i
+\end{align*}
+
+Residual analysis and model evaluation:
+Once the model has been fitted, a graphical analysis of the residuals is performed to assess whether the classical assumptions of the linear model are satisfied, including normality, homoscedasticity, and linearity.
+
+Finally, a statistical summary of the model is presented using summary(modelo1), which allows for the identification of the statistical significance of each independent variable, the adjusted coefficient of determination (adjusted R²) as a measure of model fit, and any potentially irrelevant or redundant variables.
+
+
+```{r}
+CG111_01 <- datos_norm[,-c(1,3,4)]
+
+
+split <- sample.split(Y = CG111_01$CG111_01, SplitRatio = .80)
+
+training <- subset(CG111_01, split == T)
+testing <- subset(CG111_01, split == F)
+
+modelo1 <- lm(formula = CG111_01 ~ ., data = training)
+
+plot(modelo1)
+
+summary(modelo1)
+
+
+```
+
+Model refinement using stepwise selection:
+After building the initial multiple linear regression model (modelo1), the statistical summary (summary(modelo1)) reveals that some variables do not contribute significantly to the model (high p-values). To improve model parsimony and performance, the Akaike Information Criterion (AIC) is used as an automatic variable selection method.
+
+The stepAIC() function from the MASS package performs this selection efficiently, iteratively evaluating which variables should be included or excluded based on their contribution to the balance between model fit and complexity.
+
+The argument direction = "both" is applied to allow both inclusion and exclusion of variables at each step of the algorithm (bidirectional method).
+
+As a result, a new refined model (modelo1fit) is obtained, retaining only the most relevant variables according to the AIC criterion.
+
+Finally, the statistical summary of the optimized model is reviewed again.
+
+The purpose of this procedure is to reduce model complexity by removing redundant or uninformative predictors, improve interpretability by focusing on a more manageable subset of variables, and prevent overfitting by maintaining a balance between model accuracy and generalization.
+
+This refined model serves as the basis for evaluating predictive performance on the test data and comparing it with future modeling approaches.
+
+This is the final model:
+
+\begin{align*}
+CG111_01_i &= \beta_0 + \beta_1 \cdot CB112_i + \beta_2 \cdot CP112_i + \beta_3 \cdot CB121_08_i + \beta_4 \cdot CB121_02_i \\
+&\quad + \beta_5 \cdot CB121_03_i + \beta_6 \cdot CB121_04_i + \beta_7 \cdot CP121_01_i + \beta_8 \cdot CP121_05_i \\
+&\quad + \beta_9 \cdot CP121_06_i + \beta_{10} \cdot CP121_07_i + \beta_{11} \cdot CA114_01_i + \beta_{12} \cdot CA114_02_i \\
+&\quad + \beta_{13} \cdot CA114_04_i + \beta_{14} \cdot CO113_01_i + \varepsilon_i
+\end{align*}
+```{r}
+
+MASS::stepAIC(object = modelo1, direction = "both")
+
+modelo1fit <- lm(formula = CG111_01 ~ CB112 + CP112 + CB121_08 + CB121_02 + 
+    CB121_03 + CB121_04 + CP121_01 + CP121_05 + CP121_06 + CP121_07 + 
+    CA114_01 + CA114_02 + CA114_04 + CO113_01, data = training)
+
+
+summary(modelo1fit)
+plot(modelo1fit)
+
+```
+
+
+
+Prediction on test data:
+With the optimized model (modelo1fit) fitted, its predictive performance is evaluated on the test dataset. Predictions are generated and then compared with the actual observed values of the target variable (CG111_01).
+
+```{r}
+
+testingok <- testing[,-1]
+
+predicciones <- as.data.frame(predict.lm(object = modelo1fit, newdata = testingok ))
+
+colnames(predicciones) <- "Predicciones"
+
+comparacion <- data.frame(predicciones, testing$CG111_01)
+
+ggplot(data = comparacion) + aes(x = Predicciones, y =testing.CG111_01) + geom_point() +theme_minimal()
+
+
+```
+
+Outlier detection and removal in the target variable:
+Since the model results did not achieve the expected performance, the potential bias caused by the presence of outliers in the target variable CG111_01 is addressed. Each observation is identified and classified as "Outlier" or "Non-Outlier" using the interquartile range (IQR) criterion, considering values below the first quartile minus 1.5 times the IQR or above the third quartile plus 1.5 times the IQR as outliers.
+
+A frequency table is generated to quantify the number of observations in each category, and this information is visualized using a bar plot. Finally, the dataset is filtered to remove the outlier observations in order to clean the dataset and improve the quality of the model fit, and the column used for this classification is removed before continuing with the analysis.
+
+```{r}
+
+
+
+CG111_01w_atip <- CG111_01 %>%
+  mutate(Atipico = ifelse(
+    CG111_01 < quantile(CG111_01, 0.25, na.rm = TRUE) - 1.5 * IQR(CG111_01, na.rm = TRUE) |
+    CG111_01 > quantile(CG111_01, 0.75, na.rm = TRUE) + 1.5 * IQR(CG111_01, na.rm = TRUE),
+    "Atipico", "No atipico"
+  ))
+
+
+
+tabla <- data.frame(table(CG111_01w_atip$Atipico))
+
+
+
+colnames(tabla) <- c("Estatus", "Frecuencia")
+
+
+tabla$Estatus <- as.character(tabla$Estatus)
+
+
+
+#tabla[3,] <- c("Total", sum(5549,38016))
+
+
+#tabla_p <- data.frame(table(CG111_01w_atip$Atipico))
+
+#colnames(tabla_p) <- c("Estatus", "Porcentaje")
+
+#tabla_p$Porcentaje <- tabla_p$Porcentaje / 43565 * 100
+
+knitr::kable(tabla)
+
+
+#knitr::kable(tabla_p)
+
+ggplot(data = tabla, aes(x = Estatus, y = Frecuencia)) + geom_bar(stat = "summary", fun = "sum") + theme_minimal() 
+
+
+CG111_01w_atip <- CG111_01w_atip %>% filter(Atipico == "No atipico")
+
+CG111_01w_atip <- CG111_01w_atip[,-27]
+
+
+
+```
+
+
+Correlation plot without outliers:
+A correlation plot is generated using the dataset with outliers removed. This visualization allows the assessment of linear relationships between variables in a cleaner dataset, minimizing the influence of extreme values on correlation coefficients.
+
+
+```{r}
+
+corrplot(cor(CG111_01w_atip), type = "upper", method = "square", addgrid.col = T, addCoefasPercent = T, addCoef.col = T)
+
+
+```
+
+
+Modeling after outlier removal:
+After removing outliers, the clean dataset is again split into training (80%) and testing (20%) subsets using the sample.split function. A new multiple linear regression model (modelo1_watip) is fitted on the training data without outliers. Graphical residual analyses and a statistical summary are performed to evaluate the initial model fit.
+
+Subsequently, a backward stepwise selection method based on the Akaike Information Criterion (stepAIC with direction = "backward") is applied to optimize the model, resulting in a final fitted model (modelo1_watip_fit) that includes only the most relevant variables. This optimized model is also evaluated using a summary and diagnostic plots.
+
+Finally, predictions are generated on the test set without outliers, and a dataframe is created that combines the predicted values with the actual observed values for subsequent comparison and evaluation.
+
+The final model obtained is:
+
+\begin{align*}
+CG111_01_i &= \beta_0 + \beta_1 \cdot CB112_i + \beta_2 \cdot CP112_i + \beta_3 \cdot CC112_i + \beta_4 \cdot CB121_08_i \\
+&\quad + \beta_5 \cdot CB121_03_i + \beta_6 \cdot CB121_04_i + \beta_7 \cdot CP121_01_i + \beta_8 \cdot CP121_02_i \\
+&\quad + \beta_9 \cdot CP121_06_i + \beta_{10} \cdot CP121_07_i + \beta_{11} \cdot CO113_01_i + \varepsilon_i
+\end{align*}
+
+
+```{r}
+split <- sample.split(Y = CG111_01w_atip$CG111_01, SplitRatio = .80)
+
+training <- subset(CG111_01w_atip, split == T)
+testing <- subset(CG111_01w_atip, split == F)
+
+
+
+
+modelo1_watip <- lm(formula = CG111_01 ~ ., data = training)
+
+plot(modelo1_watip)
+
+summary(modelo1_watip)
+
+MASS::stepAIC(object = modelo1_watip, direction = "backward")
+
+modelo1_watip_fit <- lm(formula = CG111_01 ~ CB112 + CP112  + CC112 + CB121_08 + 
+    CB121_03 + CB121_04 + CP121_01 + CP121_02  + CP121_06 + 
+    CP121_07 + CO113_01 , data = training)
+
+
+
+summary(modelo1_watip_fit)
+
+plot(modelo1_watip_fit)
+
+
+testingok <- testing[,-1]
+
+predicciones_watip <- as.data.frame(predict.lm(object = modelo1_watip_fit, newdata = testingok ))
+
+colnames(predicciones_watip) <- "Predicciones"
+
+comparacion <- data.frame(predicciones_watip, testing$CG111_01)
+
+ggplot(data = comparacion) + aes(x = Predicciones, y =testing.CG111_01) + geom_point() +theme_minimal()
+
+```
+
+
+Species-specific modeling:
+Since the initial model including all observations (with outliers) did not show optimal performance, the analysis was disaggregated by building models specific to each livestock species. This strategy aims to assess whether segmentation by species improves predictive performance and better captures the unique characteristics of each group, considering that the behavior of variables and their relationship with food expenses can vary significantly depending on the species. Constructing models by species allows these differences to be captured and optimizes individualized model fit, potentially improving the accuracy and usefulness of predictions.
+
+For the species-specific analysis, the variables CB112, CB121_01, CB121_08, CB121_02, CB121_03, CB121_04, and CB121_06 are selected as the main predictors. These variables were chosen due to their relevance in the bovine livestock context and their potential impact on food expenses. The selection aims to focus the model on key factors that describe specific characteristics of each species, enabling a more precise and tailored analysis for each group.
+
+
+
+```{r}
+
+CG111_01_cb <- datos_norm %>% select(CG111_01,CB112, CB121_01,CB121_08, CB121_02,CB121_03, CB121_04,CB121_06 )
+
+```
+
+
+Correlation plot
+
+```{r}
+
+corrplot(cor(CG111_01_cb))
+
+```
+
+Modeling for the bovine species:
+The data splitting process is repeated for the subset corresponding to the bovine species (CG111_01_cb), with 80% allocated for training and 20% for testing. A multiple linear regression model is fitted using all available variables, followed by optimization with stepAIC to select the most relevant predictors.
+
+The summary and diagnostic plots of the final model are reviewed, and predictions are generated on the test set to compare with the actual observed values. This procedure is similar to the one performed previously but is applied specifically to the bovine species.
+
+```{r}
+
+split <- sample.split(Y = CG111_01_cb$CG111_01, SplitRatio = .80)
+
+training <- subset(x = CG111_01_cb, split == T)
+testing <- subset(x = CG111_01_cb, split == F)
+
+testingok <- testing[,-1]
+
+modelo_CB <- lm(formula = CG111_01 ~., data = training)
+
+summary(modelo_CB)
+
+MASS::stepAIC(object = modelo_CB, direction = "both")
+
+
+summary(modelo_CB)
+
+plot(modelo_CB)
+
+
+comparacion <- data.frame(predict.lm(object = modelo_CB, newdata = testing))
+
+comparacion <- data.frame(comparacion, testing[,1])
+
+
+```
+
+
+Modeling for the bovine species without outliers:
+The modeling procedure is repeated for the bovine species, this time using the clean dataset without outliers (CG111_01_cb_w). Relevant variables are selected for the analysis, and the data is split into training (80%) and testing (20%) subsets.
+
+A multiple linear regression model is fitted on the training set using all selected variables, followed by optimization with the stepAIC method to identify the most significant predictors. The results of the optimized model are reviewed through its summary and diagnostic plots.
+
+Finally, predictions are generated on the test set, and a dataframe is created that compares the predicted values with the actual observed values, allowing evaluation of the model's performance without the influence of outliers.
+
+```{r}
+
+
+CG111_01_cb_w <- CG111_01w_atip %>% dplyr::select(CG111_01,CB112, CB121_01,CB121_08, CB121_02,CB121_03, CB121_04,CB121_06 )
+
+
+
+split <- sample.split(Y = CG111_01_cb_w$CG111_01, SplitRatio = .80)
+
+training <- subset(x = CG111_01_cb_w, split == T)
+testing <- subset(x = CG111_01_cb_w, split == F)
+
+testingok <- testing[,-1]
+
+modelo_CB <- lm(formula = CG111_01 ~., data = training)
+
+summary(modelo_CB)
+
+MASS::stepAIC(object = modelo_CB, direction = "both")
+
+
+summary(modelo_CB)
+
+plot(modelo_CB)
+
+
+comparacion <- data.frame(predict.lm(object = modelo_CB, newdata = testing))
+
+comparacion <- data.frame(comparacion, testing[,1])
+
+
+
+```
+
+### Methodological decision: species-specific disaggregation
+
+At this point in the analysis, by incorporating a larger number of variables into the models, a certain degree of bias may have been introduced, affecting the overall model fit. However, when analyzing the residual behavior, although a perfect fit is not observed, an improvement in their distribution is identified when using variables related to the ovine species.
+
+This finding suggests that the behavior of the data could be significantly influenced by the livestock species. Therefore, the methodological decision is made to continue generating models disaggregated by species, while expanding the variables specific to each one. This strategy will allow better capture of the particular dynamics of each group and potentially improve the predictive performance of the models.
