@@ -1,3 +1,5 @@
+![R](https://img.shields.io/badge/language-R-blue)
+
 # 🐄 Predicting Livestock Feeding Expenses from Species Inventory
 
 ## Author: Christian Amaro – INEGI
