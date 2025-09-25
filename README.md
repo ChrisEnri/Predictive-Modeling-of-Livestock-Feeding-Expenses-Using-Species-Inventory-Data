@@ -4,7 +4,7 @@
 
 ## 📊 Project Overview
 
-This project demonstrates how to predict livestock feeding expenses (CG111_01) using species inventory data. The workflow includes data cleaning, outlier detection, regression modeling using training and testing datasets, and species-specific analyses to improve predictive accuracy.
+This project demonstrates how to predict livestock feeding expenses (CG111_01) using species inventory data in R. The workflow includes data cleaning, outlier detection, regression modeling using training and testing datasets, and species-specific analyses to improve predictive accuracy.
 
 Key goals:
 
